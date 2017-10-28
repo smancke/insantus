@@ -28,7 +28,7 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 		timeout:       time.Second * 20,
 		url:           params["url"],
 		user:          params["user"],
-		password:      params["passwor"],
+		password:      params["password"],
 	}
 	if t, exist := params["timeout"]; exist {
 		d, err := time.ParseDuration(t)
@@ -44,6 +44,8 @@ func (c *HttpCheck) Check() []Result {
 	mainResult := NewResult(c.environmentId, c.checkId, c.name)
 
 	r, err := http.NewRequest("GET", c.url, nil)
+	r.Header.Set("User-Agent", "statuspage")
+
 	if err != nil {
 		mainResult.Status = StatusError
 		mainResult.Message = err.Error()
@@ -70,14 +72,14 @@ func (c *HttpCheck) Check() []Result {
 				b, _ := ioutil.ReadAll(resp.Body)
 				resp.Body.Close()
 				if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-					resultData := map[string]string{}
+					resultData := map[string]interface{}{}
 					err := json.Unmarshal(b, &resultData)
 					if err != nil {
 						mainResult.Status = StatusDown
 						mainResult.Message = mainResult.Message + fmt.Sprintf("error parsing json body: %v\n", err)
 					} else {
 						if s, exist := resultData["status"]; exist {
-							mainResult.Status = Status(s)
+							mainResult.Status = fmt.Sprintf("%v", s)
 						}
 					}
 				}

@@ -11,6 +11,7 @@ import (
 type Env struct {
 	Id            string            `yaml:"id"`
 	Name          string            `yaml:"name"`
+	Default       bool              `yaml:"default"`
 	Vars          map[string]string `yaml:"vars"`
 	Notifications []Notification    `yaml:"notifications"`
 	Checks        []Check
@@ -34,6 +35,7 @@ type Check struct {
 type Config struct {
 	DBPath       string
 	Listen       string
+	Static       string
 	Worker       int
 	Duration     time.Duration
 	Environments []Env
@@ -43,6 +45,7 @@ func getConfig() (*Config, error) {
 	cfg := &Config{}
 	flag.StringVar(&cfg.DBPath, "db", "statuspage.db", "Path to the sqlite storage db file")
 	flag.StringVar(&cfg.Listen, "listen", ":8080", "Server and port to listen")
+	flag.StringVar(&cfg.Static, "static", "static", "Directory with static content to serve")
 	flag.IntVar(&cfg.Worker, "worker", 20, "Number of cheks to run in parallel")
 	flag.DurationVar(&cfg.Duration, "duration", time.Minute, "Default duration for the checks")
 

@@ -10,7 +10,8 @@ type Store struct {
 	db *gorm.DB
 }
 
-func NewStore(filename string) (*Store, error) {
+func NewStore(cfg *Config) (*Store, error) {
+	filename := cfg.DBPath
 	log.Printf("opening sqlite3 db: %v", filename)
 	gormdb, err := gorm.Open("sqlite3", filename)
 	if err != nil {
@@ -25,7 +26,7 @@ func NewStore(filename string) (*Store, error) {
 
 	//gormdb.LogMode(true)
 	gormdb.DB().SetMaxIdleConns(2)
-	gormdb.DB().SetMaxOpenConns(5)
+	gormdb.DB().SetMaxOpenConns(cfg.Worker + 1)
 	gormdb.SingularTable(true)
 
 	err = gormdb.AutoMigrate(&Result{}).Error
@@ -41,4 +42,26 @@ func NewStore(filename string) (*Store, error) {
 
 func (store *Store) InsertResult(result Result) error {
 	return store.db.Create(&result).Error
+}
+
+func (store *Store) GetLatestResults(environment string) (results []*Result, err error) {
+	err = store.db.
+		Where(`environment = ?`, environment).
+		Group(`"check"`).
+		Order("timestamp ASC").
+		Find(&results).
+		Error
+
+	return
+}
+
+func (store *Store) CountGoodAndBad(results []*Result) (good, bad int) {
+	for _, res := range results {
+		if res.Status == StatusUp {
+			good++
+		} else {
+			bad++
+		}
+	}
+	return
 }

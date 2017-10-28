@@ -4,13 +4,11 @@ import (
 	"time"
 )
 
-type Status string
-
 var (
-	StatusUp       = Status("UP")
-	StatusDown     = Status("DOWN")
-	StatusDegraded = Status("DEGRADED")
-	StatusError    = Status("ERROR")
+	StatusUp       = "UP"
+	StatusDown     = "DOWN"
+	StatusDegraded = "DEGRADED"
+	StatusError    = "ERROR"
 )
 
 type Result struct {
@@ -18,7 +16,7 @@ type Result struct {
 	Environment string `sql:"type:varchar(50);index"`
 	Check       string `sql:"type:varchar(50);index"`
 	Name        string
-	Status      Status
+	Status      string
 	Message     string
 	Detail      string
 	Duration    int

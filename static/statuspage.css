@@ -1,0 +1,39 @@
+
+h1, h2, h3, h4, h5, h6 {
+    text-transform: none;
+    letter-spacing: 2px;
+    color: #313a41;
+}
+
+body, html {
+    margin-top: 0px;
+    color: #313a41;
+}
+
+.header {
+    width:100%;
+    text-align:center;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.check-abstract {
+    margin-top: 10px;
+    padding-left: 5px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.bg-light {
+    background: #c1cad1;
+}
+
+.nav-link.active {
+    color: #313a41;
+    border-bottom: 0px;
+}
+
+.nav-tabs .nav-link {
+    border-top: 1px solid #313a41;
+    border-bottom: 1px solid #313a41;
+}

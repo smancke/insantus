@@ -12,7 +12,7 @@ type checkJob struct {
 	done    chan bool
 }
 
-func startChecking(cfg *Config, resultCallback func([]Result)) {
+func startChecking(cfg *Config, resultCallback chan []Result) {
 	checkQueue := make(chan checkJob, 50)
 	for _, e := range cfg.Environments {
 		for _, c := range e.Checks {
@@ -55,12 +55,12 @@ func monitorQueue(cfg *Config, checkQueue chan checkJob) {
 	}
 }
 
-func worker(checkQueue chan checkJob, resultCallback func([]Result)) {
+func worker(checkQueue chan checkJob, resultCallback chan []Result) {
 	for {
 		job := <-checkQueue
 		results := job.checker.Check()
 		job.done <- true
-		resultCallback(results)
+		resultCallback <- results
 	}
 }
 

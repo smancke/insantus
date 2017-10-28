@@ -1,0 +1,15 @@
+
+<div class="container">
+  <div class="card check-abstract" ng-class="statusBackground(check)" ng-repeat="check in checks">
+    <div class="card-body">
+      <h4 class="card-title">{{check.name}}</h4>
+      <h5 class="card-subtitle mb-2">{{check.message}}</h5>
+      <div ng-show="check.detail.length > 0">        
+        <a class="card-link" data-toggle="collapse" data-target="#detail-{{check.check}}">Detail ..</a>
+        <div class="collapse bg-light" id="detail-{{check.check}}">
+          <pre><code>{{check.detail}}</code></pre>
+        </div>
+      </div>
+    </div>  
+  </div>
+</div>
