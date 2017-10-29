@@ -1,0 +1,19 @@
+language: go
+
+go:
+  - tip
+
+services:
+  - docker
+
+script:
+  - go test -v ./...
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+      cd checkup ;
+      ls ;
+      ./build.sh ;
+      docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" ;
+      docker push smancke/insantus ;
+    fi

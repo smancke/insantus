@@ -1,0 +1,16 @@
+
+- id: google
+  name: Google Check
+  type: http
+  every: 10s
+  timeout: 2s
+  params:
+    url: https://www.google.de/
+
+- id: example
+  name: Something to fail
+  type: http
+  envs:
+    - testing
+  params:
+    url: https://example.org/something-to-fail
