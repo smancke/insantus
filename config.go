@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
@@ -105,7 +104,6 @@ func readChecksForEnvironment(checksPath string, e Env) ([]Check, error) {
 		}
 		return strings.Replace(e.Vars[varName], "\n", "\\n", -1)
 	}))
-	fmt.Println(string(b))
 	checks := []Check{}
 	return checks, yaml.Unmarshal(b, &checks)
 }
