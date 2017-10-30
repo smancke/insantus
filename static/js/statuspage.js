@@ -115,16 +115,21 @@ app.controller('EnvController', function($scope,  $routeParams, $http, store) {
 
 app.run(function($rootScope) {
     $rootScope.statusBackground = function (object) {
-        if (object.status == "UP") {
+        var s = object.status;
+        if ('statusTo' in object) {
+            s = object.statusTo;
+        }
+        
+        if (s == "UP") {
             return "bg-success";
         }
-        if (object.status == "DOWN") {
+        if (s == "DOWN") {
             return "bg-danger";
         }
-        if (object.status == "DEGRADED") {
+        if (s == "DEGRADED") {
             return "bg-warning";
         }
-        if (object.status == "ERROR") {
+        if (s == "ERROR") {
             return "bg-danger";
         }
         return "bg-info";
@@ -132,6 +137,10 @@ app.run(function($rootScope) {
 
     $rootScope.formatSince = function(millis) {
         return Math.round(millis/1000) + 's';
+    }
+
+    $rootScope.isoToDate = function(isoDateString) {
+        return Date.parse(isoDateString)
     }
 });
 

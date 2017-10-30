@@ -55,7 +55,7 @@ func (c *HttpCheck) Check() []Result {
 	r.Header.Set("User-Agent", "statuspage")
 
 	if err != nil {
-		mainResult.Status = StatusError
+		mainResult.Status = StatusDown
 		mainResult.Message = err.Error()
 	} else {
 
@@ -68,7 +68,7 @@ func (c *HttpCheck) Check() []Result {
 
 		resp, err := http.DefaultClient.Do(r)
 		if err != nil {
-			mainResult.Status = StatusError
+			mainResult.Status = StatusDown
 			mainResult.Message = err.Error()
 		} else {
 			if 200 != resp.StatusCode {

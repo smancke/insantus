@@ -8,7 +8,6 @@ var (
 	StatusUp       = "UP"
 	StatusDown     = "DOWN"
 	StatusDegraded = "DEGRADED"
-	StatusError    = "ERROR"
 )
 
 type Result struct {
@@ -20,7 +19,7 @@ type Result struct {
 	Message     string
 	Detail      string
 	Duration    int
-	Timestamp   time.Time
+	Timestamp   time.Time `sql:"index"`
 }
 
 func NewResult(environment, check, name string) Result {
@@ -38,7 +37,7 @@ func NewResultFromError(environment, check, name string, err error) Result {
 		Environment: environment,
 		Check:       check,
 		Name:        name,
-		Status:      StatusError,
+		Status:      StatusDown,
 		Message:     err.Error(),
 		Timestamp:   time.Now(),
 	}

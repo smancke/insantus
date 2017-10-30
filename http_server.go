@@ -43,6 +43,13 @@ func (server *HttpServer) GetEnvironments(w http.ResponseWriter, r *http.Request
 			"default": env.Default,
 		}
 
+		events, err := server.store.GetStatusEvents(env.Id)
+		if err != nil {
+			errorResponse(w, err)
+			return
+		}
+		envInfo["events"] = events
+
 		results, err := server.store.GetLatestResults(env.Id)
 		if err != nil {
 			errorResponse(w, err)
