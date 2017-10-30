@@ -4,6 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"time"
 )
 
 type Store struct {
@@ -64,4 +65,13 @@ func (store *Store) CountGoodAndBad(results []*Result) (good, bad int) {
 		}
 	}
 	return
+}
+
+type StatusChange struct {
+	Environment string
+	Check       string
+	StatusFrom  string
+	StatusTo    string
+	Time        time.Time
+	ResultId    uint
 }

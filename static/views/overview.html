@@ -3,9 +3,15 @@
   <h1>Environments</h1>
 </div>
 
-<div class="container environment-summary" ng-repeat="env in store.environments">
-  <div class="header text-white" ng-class="statusBackground(env)">
-    <h1 class="text-white">{{env.name}}</h1>
-    {{env.status}} (good: {{env.good}}/bad: {{env.bad}})
+<div class="container">
+  <div ng-repeat="env in store.environments">
+    <a href="#/{{env.id}}">
+      <div class="environment-summary">
+        <div class="header text-white" ng-class="statusBackground(env)">
+          <h1 class="text-white">{{env.name}}</h1>
+          {{env.status}} (good: {{env.good}}/bad: {{env.bad}})
+        </div>
+      </div>
+    </a>
   </div>
 </div>
