@@ -68,7 +68,7 @@ func getConfig() (*Config, error) {
 		}
 		cfg.Environments[i].Checks = []Check{}
 		for _, c := range allChecks {
-			if contains(c.Envs, e.Id) {
+			if len(c.Envs) == 0 || contains(c.Envs, e.Id) {
 				cfg.Environments[i].Checks = append(cfg.Environments[i].Checks, c)
 			}
 		}

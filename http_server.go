@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"regexp"
 	"time"
 )
 
@@ -82,7 +81,8 @@ func (server *HttpServer) GetEnvironmentResults(w http.ResponseWriter, r *http.R
 			"message":    r.Message,
 			"detail":     r.Detail,
 			"duration":   r.Duration,
-			"sinceCheck": since(r.Timestamp),
+			"time":       r.Timestamp,
+			"sinceCheck": sinceMs(r.Timestamp),
 		}
 		response = append(response, info)
 	}
@@ -106,9 +106,6 @@ func jsonReponse(w http.ResponseWriter, data interface{}) {
 	}
 }
 
-var sinceRegex = regexp.MustCompile("\\.[0-9]+s")
-
-func since(t time.Time) string {
-	s := time.Since(t).String()
-	return sinceRegex.ReplaceAllString(s, "s")
+func sinceMs(t time.Time) int64 {
+	return int64(time.Since(t) / time.Millisecond)
 }

@@ -7,73 +7,106 @@ app.config(function ($routeProvider, $locationProvider) {
     $locationProvider.html5Mode(false);
     
     $routeProvider
-        .when('/:env', {templateUrl: 'views/overview.html',
-                        controller: 'OverviewController'})
-        .otherwise({ redirectTo: '/' });    
+        .when('/', {templateUrl: 'views/overview.html',
+                    controller: 'OverviewController'})
+        .when('/:env', {templateUrl: 'views/env.html',
+                        controller: 'EnvController'})
+        .otherwise({ redirectTo: '/' });
 });
 
 
-app.controller('HeaderController', function($scope, $routeParams, $http) {
-    $scope.environments = [];
-    $scope.selectedEnv = {name: "Loading .."};
+app.factory('store', function($rootScope, $http, $interval) {
+    var store = {};
+    store.data = {};
+    
+    store.data.environments = [];
+    store.data.selectedEnv = undefined;
+    store.data.checks = [{name: "Loading .."}];
+    store.data.sinceLastCheckUpdate = undefined;
+    store.checkUpdateTimestamp = undefined;
+    store.selectedEnvId = undefined;
+    store.stopTimer = undefined;
 
-    $scope.loadEnvironments = function() {
+    store._loadEnvironments = function() {
         $http.get('/api/environments')
             .success(function(data) {
-                $scope.environments = data;
-                for (var i=0; i<data.length; i++) {
-                    if (data[i].default) {
-                        $scope.selectedEnv = data[i];
-                    }
-                }                
+                data.sort(compareByName);                
+                store.data.environments = data;
+                if (angular.isDefined(store.selectedEnvId)) {
+                    store.selectEnv(store.selectedEnvId);
+                }                               
             })
             .error(function(data, status) {
-                $scope.selectedEnv = {name: "Loading .. error "+ status, status: "DOWN"};
+                store.data.selectedEnv = {name: "Loading .. error "+ status, status: "DOWN"};
                 console.log('error loading '+ status);
             });        
     }
-    
-    $scope.$on('$routeChangeSuccess', function(event, toState) {
-        for (var i=0; i<$scope.environments.length; i++) {
-            var env = $scope.environments[i];
-            if (env.id == toState.pathParams.env) {
-                $scope.selectedEnv = env;
-            }
-        }
-    });
 
-    $scope.loadEnvironments()
-});
-
-app.controller('OverviewController', function($scope,  $routeParams, $http) {
-    // get check by environment
-    $scope.checks = [
-        {
-	    name: "Loading ..",
-        }
-    ];
-
-        console.log("...");
-    $scope.loadChecks = function() {
-        console.log("loading");
-        $http.get('/api/environments/'+$routeParams.env+"/checks")
+    store._loadChecks = function() {
+        $http.get('/api/environments/'+store.selectedEnvId+"/checks")
             .success(function(data) {
-                $scope.checks = data;
+                data.sort(compareByName);
+                store.data.checks = data;
+                store.checkUpdateTimestamp = Date.now();
+                store.data.sinceLastCheckUpdate = 0;
             })
             .error(function(data, status) {
-                $scope.checks = [{name: "Loading .. error "+ status, status: "DOWN"}];
+                store.data.checks = [{name: "Loading .. error "+ status, status: "DOWN"}];
                 console.log('error loading checks'+ status);
             });        
     }
 
-    $scope.loadChecks();
-});
-
-app.controller('EnvController', function($scope,  $routeParams) {
-
-    $scope.env = $routeParams.Env;
+    store.selectEnv = function(envId) {
+        store.selectedEnvId = envId;
+        for (var i=0; i<store.data.environments.length; i++) {
+            var env = store.data.environments[i];
+            if (env.id == envId) {
+                store.data.selectedEnv = env
+            }
+        }
+        store._loadChecks();
+    }
     
+    store.stopReloading = function() {
+        if (angular.isDefined(store.stopTimer)) {
+            $interval.cancel(store.stopTimer);
+        }
+    }
+    
+    store.reload = function() {
+        store._loadEnvironments();
+        if (angular.isDefined(store.selectedEnvId)) {
+            store.selectEnv(store.selectedEnvId);
+        }
+    }
+    store.enableReloading = function() {
+        store.reload();
+        store.stopTimer = $interval(function(){
+            store.reload();
+        }, 10000);
+    }
+
+    $interval(function(){
+        store.data.sinceLastCheckUpdate = Date.now() - store.checkUpdateTimestamp;
+    }, 1000);
+    
+    store.enableReloading();
+    return store;
 });
+
+app.controller('HeaderController', function($scope, $routeParams, $http, store) {
+    $scope.store = store.data
+});
+           
+app.controller('OverviewController', function($scope, $routeParams, $http, store) {
+    $scope.store = store.data
+});
+
+app.controller('EnvController', function($scope,  $routeParams, $http, store) {
+    $scope.store = store.data
+    store.selectEnv($routeParams.env);    
+});
+
 
 app.run(function($rootScope) {
     $rootScope.statusBackground = function (object) {
@@ -91,5 +124,14 @@ app.run(function($rootScope) {
         }
         return "bg-info";
     }
+
+    $rootScope.formatSince = function(millis) {
+        return Math.round(millis/1000) + 's';
+    }
 });
 
+function compareByName(a,b) {
+    if(a.name < b.name) return -1;
+    if(a.name > b.name) return 1;
+    return 0;
+}

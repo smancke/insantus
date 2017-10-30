@@ -24,6 +24,10 @@ body, html {
     padding-bottom: 5px;
 }
 
+.environment-summary {
+    margin-top: 3px;    
+}
+
 .bg-light {
     background: #c1cad1;
 }

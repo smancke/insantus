@@ -19,15 +19,15 @@
   <body>
     <section ng-controller="HeaderController">
       <ul class="nav nav-tabs nav-fill">
-        <li class="nav-item" ng-class="statusBackground(env)" ng-repeat="env in environments">
-          <a class="nav-link" ng-class="(selectedEnv.id == env.id) ? 'active' : '';" href="#/{{env.id}}">{{env.name}}</a>
+        <li class="nav-item" ng-class="statusBackground(env)" ng-repeat="env in store.environments">
+          <a class="nav-link" ng-class="(store.selectedEnv.id == env.id) ? 'active' : '';" href="#/{{env.id}}">{{env.name}}</a>
         </li>
       </ul>
       <br>
-      <div class="container">
-        <div class="header text-white" ng-class="statusBackground(selectedEnv)">
-          <h1 class="text-white">{{selectedEnv.name}}</h1>
-          {{selectedEnv.status}} (good: {{selectedEnv.good}}/bad: {{selectedEnv.bad}})
+      <div ng-if="store.selectedEnv">
+        <div class="header text-white" ng-class="statusBackground(store.selectedEnv)">
+          <h1 class="text-white">{{store.selectedEnv.name}}</h1>
+          {{selectedEnv.status}} (good: {{store.selectedEnv.good}}/bad: {{store.selectedEnv.bad}})
         </div>
       </div>
     </section>

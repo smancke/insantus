@@ -13,4 +13,4 @@
   envs:
     - testing
   params:
-    url: https://example.org/something-to-fail
+    url: https://$domain/something-to-fail

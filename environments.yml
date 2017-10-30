@@ -2,9 +2,9 @@
 - id: prod
   name: Production
   default: true
-  vars:
-    domain: example.org
     
 - id: testing
   name: Testing
+  vars:
+    domain: example.org
 
