@@ -112,8 +112,9 @@ func (c *HttpCheck) Check() []Result {
 }
 
 func ensureSpringHealthFormat(body []byte, resp *http.Response) (string, error) {
-	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-		return "DOWN", fmt.Errorf("expecting Content-Type: application/json, but got %v", resp.Header.Get("Content-Type"))
+	if !(strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") ||
+		strings.HasPrefix(resp.Header.Get("Content-Type"), "application/vnd.spring-boot.actuator")) {
+		return "DOWN", fmt.Errorf("got wrong content type: %v", resp.Header.Get("Content-Type"))
 	}
 
 	resultData := map[string]interface{}{}
