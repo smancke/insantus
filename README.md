@@ -1,5 +1,5 @@
 
-insanitus
+insantus
 ============
 
 A very simple health check and statuspage app.

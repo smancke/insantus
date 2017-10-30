@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -75,7 +77,13 @@ func readEnvironments(environmentsPath string) ([]Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	b = []byte(os.ExpandEnv(string(b)))
+	b = []byte(os.Expand(string(b), func(varName string) string {
+		if s, envExist := os.LookupEnv(varName); envExist {
+			return strings.Replace(s, "\n", "\\n", -1)
+		}
+		return ""
+	}))
+
 	envs := []Env{}
 	return envs, yaml.Unmarshal(b, &envs)
 }
@@ -87,10 +95,11 @@ func readChecksForEnvironment(checksPath string, e Env) ([]Check, error) {
 	}
 	b = []byte(os.Expand(string(b), func(varName string) string {
 		if s, envExist := os.LookupEnv(varName); envExist {
-			return s
+			return strings.Replace(s, "\n", "\\n", -1)
 		}
-		return e.Vars[varName]
+		return strings.Replace(e.Vars[varName], "\n", "\\n", -1)
 	}))
+	fmt.Println(string(b))
 	checks := []Check{}
 	return checks, yaml.Unmarshal(b, &checks)
 }

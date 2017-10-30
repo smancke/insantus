@@ -25,7 +25,6 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 		environmentId: environmentId,
 		checkId:       checkId,
 		name:          name,
-		timeout:       time.Second * 20,
 		url:           params["url"],
 		user:          params["user"],
 		password:      params["password"],
@@ -36,6 +35,8 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 			return nil, err
 		}
 		c.timeout = d
+	} else {
+		c.timeout = time.Second * 10
 	}
 	return c, nil
 }
