@@ -43,8 +43,13 @@ app.factory('store', function($rootScope, $http, $interval) {
     }
 
     store._loadChecks = function() {
-        $http.get('/api/environments/'+store.selectedEnvId+"/checks")
+        var envId = store.selectedEnvId;
+        $http.get('/api/environments/'+envId+"/checks")
             .success(function(data) {
+                if (envId != store.selectedEnvId) {
+                    // only update, if the eventid has not changed in the meantime
+                    return;
+                }
                 data.sort(compareByName);
                 store.data.checks = data;
                 store.checkUpdateTimestamp = Date.now();

@@ -75,7 +75,6 @@ func (c *HttpCheck) Check() []Result {
 				mainResult.Status = StatusDown
 				mainResult.Message = fmt.Sprintf("http status code: %v\n", resp.StatusCode)
 			}
-			fmt.Println("contains: ", c.contains)
 
 			if c.format == FormatSpringHealth ||
 				c.contains != "" {
