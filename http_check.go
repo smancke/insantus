@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 )
+
+var FormatSpringHealth string = "spring-health"
 
 type HttpCheck struct {
 	environmentId string
@@ -18,6 +21,8 @@ type HttpCheck struct {
 	url           string
 	user          string
 	password      string
+	format        string
+	contains      string
 }
 
 func NewHttpCheck(environmentId, checkId, name string, params map[string]string) (*HttpCheck, error) {
@@ -28,6 +33,8 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 		url:           params["url"],
 		user:          params["user"],
 		password:      params["password"],
+		format:        params["format"],
+		contains:      params["contains"],
 	}
 	if t, exist := params["timeout"]; exist {
 		d, err := time.ParseDuration(t)
@@ -68,20 +75,27 @@ func (c *HttpCheck) Check() []Result {
 				mainResult.Status = StatusDown
 				mainResult.Message = fmt.Sprintf("http status code: %v\n", resp.StatusCode)
 			}
+			fmt.Println("contains: ", c.contains)
 
-			if resp.Body != nil {
+			if c.format == FormatSpringHealth ||
+				c.contains != "" {
+
 				b, _ := ioutil.ReadAll(resp.Body)
 				resp.Body.Close()
-				if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-					resultData := map[string]interface{}{}
-					err := json.Unmarshal(b, &resultData)
+				if c.format == FormatSpringHealth {
+					status, err := ensureSpringHealthFormat(b, resp)
 					if err != nil {
 						mainResult.Status = StatusDown
-						mainResult.Message = mainResult.Message + fmt.Sprintf("error parsing json body: %v\n", err)
+						mainResult.Message = err.Error()
 					} else {
-						if s, exist := resultData["status"]; exist {
-							mainResult.Status = fmt.Sprintf("%v", s)
-						}
+						mainResult.Status = status
+					}
+				}
+
+				if c.contains != "" {
+					if !strings.Contains(string(b), c.contains) {
+						mainResult.Status = StatusDown
+						mainResult.Message = fmt.Sprintf("missing string %q in result", c.contains)
 					}
 				}
 
@@ -95,4 +109,21 @@ func (c *HttpCheck) Check() []Result {
 	results := []Result{mainResult}
 
 	return results
+}
+
+func ensureSpringHealthFormat(body []byte, resp *http.Response) (string, error) {
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		return "DOWN", fmt.Errorf("expecting Content-Type: application/json, but got %v", resp.Header.Get("Content-Type"))
+	}
+
+	resultData := map[string]interface{}{}
+	err := json.Unmarshal(body, &resultData)
+	if err != nil {
+		return "DOWN", errors.Wrap(err, "error parsing json body")
+	}
+	s, exist := resultData["status"]
+	if !exist {
+		return "DOWN", errors.New("missing status in response")
+	}
+	return fmt.Sprintf("%v", s), nil
 }
