@@ -181,7 +181,7 @@ func (store *Store) CountGoodAndBad(results []*Result) (good, bad int) {
 
 type CheckInfo struct {
 	Environment      string    `json:"environment" gorm:"primary_key" sql:"type:varchar(50)"`
-	Check            string    `json:"check" "gorm:"primary_key" sql:"type:varchar(50)"`
+	Check            string    `json:"check" gorm:"primary_key" sql:"type:varchar(50)"`
 	Name             string    `json:"name"`
 	Status           string    `json:"status" sql:"type:varchar(50);index"`
 	Message          string    `json:"message"`
@@ -197,7 +197,7 @@ type CheckInfo struct {
 }
 
 type StatusEvent struct {
-	Environment string    `json:"environment" "sql:"type:varchar(50);index"`
+	Environment string    `json:"environment" sql:"type:varchar(50);index"`
 	Check       string    `json:"check" sql:"type:varchar(50);index"`
 	Name        string    `json:"name"`
 	StatusFrom  string    `json:"statusFrom"`

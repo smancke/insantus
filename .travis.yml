@@ -7,7 +7,9 @@ services:
   - docker
 
 script:
+  - go get ./...
   - go test -v ./...
+  - go vet ./...
 
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
