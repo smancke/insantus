@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -25,7 +26,8 @@ func (server *HttpServer) Start() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/api/environments", server.GetEnvironments)
-	router.HandleFunc("/api/environments/{env}/checks", server.GetEnvironmentResults)
+	router.HandleFunc("/api/environments/{env}", server.GetEnvironment)
+	router.HandleFunc("/api/results/{id}", server.GetResult)
 	router.Handle(`/{path:[a-zA-Z0-9=\-\/.]*}`, http.FileServer(http.Dir(server.cfg.Static)))
 
 	err := http.ListenAndServe(server.cfg.Listen, router)
@@ -34,8 +36,29 @@ func (server *HttpServer) Start() {
 	}
 }
 
+func (server *HttpServer) GetResult(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		badRequestResponse(w)
+		return
+	}
+
+	res, found, err := store.Result(id)
+	if err != nil {
+		errorResponse(w, err)
+		return
+	}
+
+	if !found {
+		w.WriteHeader(404)
+		return
+	}
+	jsonReponse(w, res)
+}
 func (server *HttpServer) GetEnvironments(w http.ResponseWriter, r *http.Request) {
-	environments := []map[string]interface{}{}
+	overallStatus := StatusUp
+	response := map[string]interface{}{}
 	for _, env := range server.cfg.Environments {
 		envInfo := map[string]interface{}{
 			"id":      env.Id,
@@ -43,56 +66,68 @@ func (server *HttpServer) GetEnvironments(w http.ResponseWriter, r *http.Request
 			"default": env.Default,
 		}
 
-		events, err := server.store.GetStatusEvents(env.Id)
+		status, err := server.store.Status(env.Id)
 		if err != nil {
 			errorResponse(w, err)
 			return
 		}
-		envInfo["events"] = events
-
-		results, err := server.store.GetLatestResults(env.Id)
-		if err != nil {
-			errorResponse(w, err)
-			return
-		}
-		good, bad := store.CountGoodAndBad(results)
+		good, bad := store.CountGoodAndBad(status)
 		envInfo["good"] = good
 		envInfo["bad"] = bad
 
 		if bad > 0 {
 			envInfo["status"] = StatusDown
+			overallStatus = StatusDown
 		} else {
 			envInfo["status"] = StatusUp
 		}
 
-		environments = append(environments, envInfo)
+		response[env.Id] = envInfo
 	}
-	jsonReponse(w, environments)
+	response["status"] = overallStatus
+	jsonReponse(w, response)
 }
 
-func (server *HttpServer) GetEnvironmentResults(w http.ResponseWriter, r *http.Request) {
+func (server *HttpServer) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	env := vars["env"]
-	results, err := store.GetLatestResults(env)
+	status, err := store.Status(env)
 	if err != nil {
 		errorResponse(w, err)
 		return
 	}
 
-	response := []map[string]interface{}{}
-	for _, r := range results {
-		info := map[string]interface{}{
-			"check":      r.Check,
-			"name":       r.Name,
-			"status":     r.Status,
-			"message":    r.Message,
-			"detail":     r.Detail,
-			"duration":   r.Duration,
-			"time":       r.Timestamp,
-			"sinceCheck": sinceMs(r.Timestamp),
+	overallStatus := StatusUp
+	checks := []map[string]interface{}{}
+	for _, s := range status {
+		if s.Status != StatusUp {
+			overallStatus = StatusDown
 		}
-		response = append(response, info)
+		info := map[string]interface{}{
+			"check":        s.Check,
+			"name":         s.Name,
+			"status":       s.Status,
+			"message":      s.Message,
+			"duration":     s.Duration,
+			"lastResultId": s.LastResultId,
+			"time":         s.Updated,
+			"sinceCheck":   sinceMs(s.Updated),
+		}
+		checks = append(checks, info)
 	}
+
+	downtimes, err := server.store.Downtimes(env)
+	if err != nil {
+		errorResponse(w, err)
+		return
+	}
+
+	response := map[string]interface{}{
+		"status":    overallStatus,
+		"checks":    checks,
+		"downtimes": downtimes,
+	}
+
 	jsonReponse(w, response)
 }
 
@@ -101,6 +136,11 @@ func errorResponse(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 	w.Write([]byte(`{"error": "Internal error occured"}`))
+}
+
+func badRequestResponse(w http.ResponseWriter) {
+	w.WriteHeader(400)
+	w.Write([]byte(`{"error": "Bad Request"}`))
 }
 
 func jsonReponse(w http.ResponseWriter, data interface{}) {

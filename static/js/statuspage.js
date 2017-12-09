@@ -22,6 +22,7 @@ app.factory('store', function($rootScope, $http, $interval) {
     store.data.environments = [];
     store.data.selectedEnv = undefined;
     store.data.checks = [{name: "Loading .."}];
+    store.data.downtimes = [];
     store.data.sinceLastCheckUpdate = undefined;
     store.checkUpdateTimestamp = undefined;
     store.selectedEnvId = undefined;
@@ -30,8 +31,13 @@ app.factory('store', function($rootScope, $http, $interval) {
     store._loadEnvironments = function() {
         $http.get('/api/environments')
             .success(function(data) {
-                data.sort(compareByName);                
-                store.data.environments = data;
+                store.data.environments = []
+                for (var key in data) {
+                    if (key != "status") {
+                        store.data.environments.push(data[key]);
+                    }
+                }
+                store.data.environments.sort(compareByName);                
                 if (angular.isDefined(store.selectedEnvId)) {
                     store.selectEnv(store.selectedEnvId);
                 }                               
@@ -44,15 +50,16 @@ app.factory('store', function($rootScope, $http, $interval) {
 
     store._loadChecks = function() {
         var envId = store.selectedEnvId;
-        $http.get('/api/environments/'+envId+"/checks")
+        $http.get('/api/environments/'+envId)
             .success(function(data) {
                 if (envId != store.selectedEnvId) {
                     // only update, if the eventid has not changed in the meantime
                     return;
                 }
-                data.sort(compareByName);
-                store.data.checks = data;
+                data.checks.sort(compareByName);
+                store.data.checks = data.checks;
                 store.checkUpdateTimestamp = Date.now();
+                store.data.downtimes = data.downtimes;
                 store.data.sinceLastCheckUpdate = 0;
             })
             .error(function(data, status) {
@@ -133,6 +140,29 @@ app.run(function($rootScope) {
             return "bg-danger";
         }
         return "bg-info";
+    }
+
+    var oneMinute = 1000 * 60
+    var oneHour = 1000 * 60 * 60
+    var oneDay = 24 * oneHour    
+    $rootScope.sinceString = function(start, end) {
+        start = Date.parse(start)
+        end = Date.parse(end)
+        if (end < start) {
+            end = new Date()
+        }
+
+        var duration = new Date(end - start)
+        if (duration > oneDay) {
+            return Math.round(duration / oneDay ) + "d"
+        }
+        if (duration > oneHour) {
+            return Math.round(duration / oneHour ) + "h"
+        }
+        if (duration > oneMinute) {
+            return Math.round(duration / oneMinute ) + "m"
+        }
+        return Math.round(duration/1000) +"s"
     }
 
     $rootScope.formatSince = function(millis) {

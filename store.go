@@ -30,7 +30,7 @@ func NewStore(cfg *Config) (*Store, error) {
 	gormdb.DB().SetMaxOpenConns(cfg.Worker + 1)
 	gormdb.SingularTable(true)
 
-	err = gormdb.AutoMigrate(&Result{}, &CheckInfo{}, &StatusEvent{}).Error
+	err = gormdb.AutoMigrate(&Result{}, &CheckStatus{}, &Downtime{}).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "schema migration")
 	}
@@ -39,7 +39,7 @@ func NewStore(cfg *Config) (*Store, error) {
 		db: gormdb,
 	}
 
-	err = s.updateCheckInfos(cfg)
+	err = s.updateChecks(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "updating CheckSummaries")
 	}
@@ -47,14 +47,18 @@ func NewStore(cfg *Config) (*Store, error) {
 	return s, nil
 }
 
-func (store *Store) updateCheckInfos(cfg *Config) error {
+func (store *Store) Close() error {
+	return store.db.Close()
+}
+
+func (store *Store) updateChecks(cfg *Config) error {
 	allKeysInConfig := map[string]string{}
 	for _, e := range cfg.Environments {
 		for _, c := range e.Checks {
-			info := &CheckInfo{}
+			info := &CheckStatus{}
 			if store.db.Where(`environment = ? AND "check" = ?`, e.Id, c.Id).First(info).RecordNotFound() {
 				// nothing found: insert record
-				info := &CheckInfo{
+				info := &CheckStatus{
 					Environment: e.Id,
 					Check:       c.Id,
 					Name:        c.Name,
@@ -69,7 +73,7 @@ func (store *Store) updateCheckInfos(cfg *Config) error {
 		}
 	}
 
-	allInfosInDb := []CheckInfo{}
+	allInfosInDb := []CheckStatus{}
 	err := store.db.Find(&allInfosInDb).Error
 	if err != nil {
 		return err
@@ -92,64 +96,85 @@ func (store *Store) InsertResult(result Result) error {
 		return err
 	}
 
-	return store.updateCheckInfo(result)
-}
-
-func (store *Store) updateCheckInfo(result Result) error {
-	info := CheckInfo{
-		Environment: result.Environment,
-		Check:       result.Check,
-	}
-	err := store.db.Where(&info).First(&info).Error
+	err = store.updateCheckStatus(result)
 	if err != nil {
-		return errors.Wrap(err, "query check info")
+		return err
 	}
 
-	statusFrom := info.Status
-	statusTo := result.Status
-
-	info.Status = result.Status
-	info.Message = result.Message
-	info.Duration = result.Duration
-	info.Updated = result.Timestamp
-
-	err = store.db.Where(`environment = ? AND "check" = ?`, info.Environment, info.Check).Save(&info).Error
+	err = store.updateDowntimes(result)
 	if err != nil {
-		return errors.Wrap(err, "update check info")
-	}
-
-	if statusFrom != statusTo {
-		event := StatusEvent{
-			Environment: info.Environment,
-			Check:       info.Check,
-			Name:        info.Name,
-			StatusFrom:  statusFrom,
-			StatusTo:    statusTo,
-			Updated:     info.Updated,
-			ResultId:    result.Id,
-		}
-		err := store.db.Create(&event).Error
-		if err != nil {
-			return errors.Wrap(err, "create status event")
-		}
+		return err
 	}
 
 	return nil
-	/**
-	DurationAvg1h    int
-	DurationAvg24h   int
-	DurationAvg7d    int
-	UptimePercent5m    float32
-	UptimePercent1h  float32
-	UptimePercent24h float32
-	UptimePercent7d  float32
-	*/
 }
 
-func (store *Store) GetStatusEvents(environment string) (results []*StatusEvent, err error) {
+func (store *Store) updateCheckStatus(result Result) error {
+	checkStatus := CheckStatus{
+		Environment: result.Environment,
+		Check:       result.Check,
+	}
+	err := store.db.Where(&checkStatus).First(&checkStatus).Error
+	if err != nil {
+		return errors.Wrap(err, "query checkStatus")
+	}
+
+	checkStatus.Status = result.Status
+	checkStatus.Message = result.Message
+	checkStatus.Duration = result.Duration
+	checkStatus.Updated = result.Timestamp
+	checkStatus.LastResultId = result.Id
+
+	err = store.db.Where(`environment = ? AND "check" = ?`, checkStatus.Environment, checkStatus.Check).
+		Save(&checkStatus).Error
+	if err != nil {
+		return errors.Wrap(err, "update checkStatus")
+	}
+
+	return nil
+}
+
+func (store *Store) updateDowntimes(result Result) error {
+	// load the unrecovered downtime, if any
+
+	d := &Downtime{}
+	err := store.db.
+		Where(`environment = ? AND "check" = ? AND recovered = 0`, result.Environment, result.Check).
+		First(d).Error
+	openDowntimeLoaded := err == nil
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return errors.Wrap(err, "query downtimes")
+	}
+
+	if result.Status == StatusUp && !openDowntimeLoaded {
+		// nothing to do
+		return nil
+	}
+
+	if result.Status == StatusUp {
+		d.Recovered = true
+		d.End = time.Now()
+	} else {
+
+		if !openDowntimeLoaded {
+			d.Environment = result.Environment
+			d.Check = result.Check
+			d.Name = result.Name
+			d.Start = time.Now()
+		}
+		d.FailCount++
+		d.LastResultId = result.Id
+	}
+
+	// TODO: notify
+
+	return store.db.Save(d).Error
+}
+
+func (store *Store) Downtimes(environment string) (results []*Downtime, err error) {
 	err = store.db.
 		Where(`environment = ?`, environment).
-		Order("updated DESC").
+		Order("recovered ASC, start DESC").
 		Limit(30).
 		Find(&results).
 		Error
@@ -157,6 +182,39 @@ func (store *Store) GetStatusEvents(environment string) (results []*StatusEvent,
 	return
 }
 
+func (store *Store) Status(environment string) (statusList []*CheckStatus, err error) {
+	err = store.db.
+		Where(`environment = ?`, environment).
+		Order("name").
+		Find(&statusList).
+		Error
+	return
+}
+
+func (store *Store) Result(id int) (*Result, bool, error) {
+	res := &Result{}
+	err := store.db.First(res, id).
+		Error
+
+	found := err == nil
+	if err == gorm.ErrRecordNotFound {
+		err = nil
+	}
+	return res, found, err
+}
+
+func (store *Store) CountGoodAndBad(s []*CheckStatus) (good, bad int) {
+	for _, res := range s {
+		if res.Status == StatusUp {
+			good++
+		} else {
+			bad++
+		}
+	}
+	return
+}
+
+/**
 func (store *Store) GetLatestResults(environment string) (results []*Result, err error) {
 	err = store.db.
 		Where(`environment = ?`, environment).
@@ -168,40 +226,4 @@ func (store *Store) GetLatestResults(environment string) (results []*Result, err
 	return
 }
 
-func (store *Store) CountGoodAndBad(results []*Result) (good, bad int) {
-	for _, res := range results {
-		if res.Status == StatusUp {
-			good++
-		} else {
-			bad++
-		}
-	}
-	return
-}
-
-type CheckInfo struct {
-	Environment      string    `json:"environment" gorm:"primary_key" sql:"type:varchar(50)"`
-	Check            string    `json:"check" gorm:"primary_key" sql:"type:varchar(50)"`
-	Name             string    `json:"name"`
-	Status           string    `json:"status" sql:"type:varchar(50);index"`
-	Message          string    `json:"message"`
-	Duration         int       `json:"duration"`
-	DurationAvg1h    int       `json:"durationAvg1h"`
-	DurationAvg24h   int       `json:"durationAvg24h"`
-	DurationAvg7d    int       `json:"durationAvg7dh"`
-	UptimePercent5m  float32   `json:"uptimePercent5m"`
-	UptimePercent1h  float32   `json:"uptimePercent1h"`
-	UptimePercent24h float32   `json:"uptimePercent24h"`
-	UptimePercent7d  float32   `json:"uptimePercent7d"`
-	Updated          time.Time `json:"updated" sql:"index"`
-}
-
-type StatusEvent struct {
-	Environment string    `json:"environment" sql:"type:varchar(50);index"`
-	Check       string    `json:"check" sql:"type:varchar(50);index"`
-	Name        string    `json:"name"`
-	StatusFrom  string    `json:"statusFrom"`
-	StatusTo    string    `json:"statusTo"`
-	Updated     time.Time `json:"updated" sql:"index"`
-	ResultId    uint      `json:"resultId"`
-}
+**/
