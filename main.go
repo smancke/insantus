@@ -12,7 +12,7 @@ func main() {
 		log.Fatalf("error reading configuration %v\n", err)
 	}
 
-	store, err = NewStore(cfg)
+	store, err = NewStore(cfg, NewNotificationGateway(cfg))
 	if err != nil {
 		log.Fatalf("error opening database %v\n", err)
 	}

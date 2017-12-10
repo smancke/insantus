@@ -11,7 +11,7 @@ import (
 
 func Test_Store_CheckStatus(t *testing.T) {
 	cfg := testConfig(t)
-	store, err := NewStore(cfg)
+	store, err := NewStore(cfg, NewNotificationGateway(cfg))
 	NoError(t, err)
 	defer store.Close()
 
@@ -48,14 +48,26 @@ func Test_Store_CheckStatus(t *testing.T) {
 
 func Test_Store_DowntimeNotifications(t *testing.T) {
 	cfg := testConfig(t)
-	store, err := NewStore(cfg)
+	notifyMock := &NotifyMock{}
+	store, err := NewStore(cfg, notifyMock)
 	NoError(t, err)
 	defer store.Close()
 
 	NoError(t, store.InsertResult(upResult("check1")))
+	notifyMock.AssertNoNotifications(t)
+
 	NoError(t, store.InsertResult(downResult("check1")))
+	notifyMock.AssertNoNotifications(t)
+
 	NoError(t, store.InsertResult(downResult("check1")))
+	Equal(t, 1, len(notifyMock.downs))
+	Equal(t, "testEnv", notifyMock.environment)
+	Nil(t, notifyMock.ups)
+	notifyMock.reset()
+
 	NoError(t, store.InsertResult(upResult("check1")))
+	Equal(t, 1, len(notifyMock.ups))
+	Nil(t, notifyMock.downs)
 
 	NoError(t, store.InsertResult(downResult("check1")))
 
@@ -64,8 +76,6 @@ func Test_Store_DowntimeNotifications(t *testing.T) {
 
 	downtimes, err := store.Downtimes("testEnv")
 	NoError(t, err)
-
-	//dumpDB(cfg.DBPath)
 
 	// first downtime is the one, which is not recovered
 	d := downtimes[0]
@@ -152,4 +162,33 @@ func testConfig(t *testing.T) *Config {
 			},
 		},
 	}
+}
+
+type NotifyMock struct {
+	environment string
+	downs       []*Downtime
+	ups         []*Downtime
+}
+
+func (nm *NotifyMock) reset() {
+	nm.environment = ""
+	nm.downs = nil
+	nm.ups = nil
+}
+
+func (nm *NotifyMock) NotifyDown(envId string, downtimes []*Downtime) error {
+	nm.environment = envId
+	nm.downs = downtimes
+	return nil
+}
+func (nm *NotifyMock) NotifyRecovered(envId string, downtimes []*Downtime) error {
+	nm.environment = envId
+	nm.ups = downtimes
+	return nil
+}
+
+func (nm *NotifyMock) AssertNoNotifications(t *testing.T) {
+	Equal(t, "", nm.environment)
+	Nil(t, nm.downs)
+	Nil(t, nm.ups)
 }

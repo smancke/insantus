@@ -55,13 +55,24 @@ type CheckStatus struct {
 }
 
 type Downtime struct {
-	Id           uint      `json:"id" gorm:"primary_key"`
-	Environment  string    `json:"environment" sql:"type:varchar(50);index"`
-	Check        string    `json:"check" sql:"type:varchar(50);index"`
-	Name         string    `json:"name"`
-	Start        time.Time `json:"start"`
-	End          time.Time `json:"end"`
-	FailCount    int       `json:"failCount"`
-	LastResultId uint      `json:"lastResultId"`
-	Recovered    bool      `json:"recovered" sql:"index"`
+	Id                uint      `json:"id" gorm:"primary_key"`
+	Environment       string    `json:"environment" sql:"type:varchar(50);index"`
+	Check             string    `json:"check" sql:"type:varchar(50);index"`
+	Name              string    `json:"name"`
+	Message           string    `json:"message"`
+	Start             time.Time `json:"start"`
+	End               time.Time `json:"end"`
+	FailCount         int       `json:"failCount"`
+	LastResultId      uint      `json:"lastResultId"`
+	Recovered         bool      `json:"recovered" sql:"index"`
+	Comment           string    `json:"comment"`
+	DownNotifySent    bool      `json:"downNotifySent"`
+	DownNotifyTime    time.Time `json:"downNotifyTime"`
+	RecoverNotifySent bool      `json:"recoverNotifySent"`
+	RecoverNotifyTime time.Time `json:"recoverNotifyTime"`
+}
+
+type Notifyer interface {
+	NotifyDown(envId string, downtimes []*Downtime) error
+	NotifyRecovered(envId string, downtimes []*Downtime) error
 }

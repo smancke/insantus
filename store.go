@@ -9,10 +9,11 @@ import (
 )
 
 type Store struct {
-	db *gorm.DB
+	db       *gorm.DB
+	notifyer Notifyer
 }
 
-func NewStore(cfg *Config) (*Store, error) {
+func NewStore(cfg *Config, notifyer Notifyer) (*Store, error) {
 	filename := cfg.DBPath
 	log.Printf("opening sqlite3 db: %v", filename)
 	gormdb, err := gorm.Open("sqlite3", filename)
@@ -36,7 +37,8 @@ func NewStore(cfg *Config) (*Store, error) {
 	}
 
 	s := &Store{
-		db: gormdb,
+		db:       gormdb,
+		notifyer: notifyer,
 	}
 
 	err = s.updateChecks(cfg)
@@ -93,17 +95,17 @@ func (store *Store) updateChecks(cfg *Config) error {
 func (store *Store) InsertResult(result Result) error {
 	err := store.db.Create(&result).Error
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create result")
 	}
 
 	err = store.updateCheckStatus(result)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "updateCheckStatus")
 	}
 
 	err = store.updateDowntimes(result)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "updateDowntimes")
 	}
 
 	return nil
@@ -164,11 +166,94 @@ func (store *Store) updateDowntimes(result Result) error {
 		}
 		d.FailCount++
 		d.LastResultId = result.Id
+		d.Message = result.Message
 	}
 
-	// TODO: notify
+	err = store.db.Save(d).Error
+	if err != nil {
+		return errors.Wrap(err, "save downtime")
+	}
 
-	return store.db.Save(d).Error
+	err = store.checkForDownNotifications(result.Environment)
+	if err != nil {
+		return errors.Wrap(err, "CheckForDownNotifications")
+	}
+
+	err = store.checkForRecoverNotifications(result.Environment)
+	if err != nil {
+		return errors.Wrap(err, "CheckForRecoverNotifications")
+	}
+
+	return nil
+}
+
+func (store *Store) checkForDownNotifications(environment string) error {
+	now := time.Now()
+
+	downs := []*Downtime{}
+	err := store.db.
+		Where(`environment = ? AND recovered = 0 AND down_notify_sent == 0 AND fail_count >= 2`, environment).
+		Find(&downs).
+		Error
+	if err != nil {
+		return err
+	}
+	if len(downs) == 0 {
+		return nil
+	}
+
+	// find all downs, with any fail count
+	err = store.db.
+		Where(`environment = ? AND recovered = 0 AND down_notify_sent == 0`, environment).
+		Find(&downs).
+		Error
+	if err != nil {
+		return err
+	}
+
+	err = store.notifyer.NotifyDown(environment, downs)
+	if err != nil {
+		return err
+	}
+	for _, d := range downs {
+		d.DownNotifySent = true
+		d.DownNotifyTime = now
+		err := store.db.Save(d).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (store *Store) checkForRecoverNotifications(environment string) error {
+	now := time.Now()
+
+	ups := []*Downtime{}
+	err := store.db.
+		Where(`environment = ? AND down_notify_sent = 1 AND recovered = 1 AND recover_notify_sent == 0`, environment).
+		Find(&ups).
+		Error
+	if err != nil {
+		return err
+	}
+	if len(ups) == 0 {
+		return nil
+	}
+
+	err = store.notifyer.NotifyRecovered(environment, ups)
+	if err != nil {
+		return err
+	}
+	for _, d := range ups {
+		d.RecoverNotifySent = true
+		d.RecoverNotifyTime = now
+		err := store.db.Save(d).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (store *Store) Downtimes(environment string) (results []*Downtime, err error) {
@@ -213,17 +298,3 @@ func (store *Store) CountGoodAndBad(s []*CheckStatus) (good, bad int) {
 	}
 	return
 }
-
-/**
-func (store *Store) GetLatestResults(environment string) (results []*Result, err error) {
-	err = store.db.
-		Where(`environment = ?`, environment).
-		Group(`"check"`).
-		Order("timestamp ASC").
-		Find(&results).
-		Error
-
-	return
-}
-
-**/

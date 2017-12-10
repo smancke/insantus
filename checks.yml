@@ -7,10 +7,46 @@
   params:
     url: https://www.google.de/
 
+
 - id: example
+  every: 2s
   name: Something to fail
   type: http
+  timeout: 2s
   envs:
     - testing
   params:
     url: https://$domain/something-to-fail
+
+
+
+- id: nginx1
+  every: 2s
+  name: Nginx Test 1
+  type: http
+  timeout: 2s
+  envs:
+    - testing
+  params:
+    url: http://127.0.0.1/
+
+
+- id: nginx2
+  every: 2s
+  name: Nginx Test 2
+  type: http
+  timeout: 2s
+  envs:
+    - testing
+  params:
+    url: http://127.0.0.1/
+
+- id: nginx3
+  every: 2s
+  name: Nginx Test 2
+  type: http
+  timeout: 2s
+  envs:
+    - testing
+  params:
+    url: http://127.0.0.1/

@@ -39,7 +39,17 @@ type Config struct {
 	Static       string
 	Worker       int
 	Duration     time.Duration
+	SelfUrl      string
 	Environments []Env
+}
+
+func (cfg *Config) EnvById(envId string) (Env, bool) {
+	for _, e := range cfg.Environments {
+		if e.Id == envId {
+			return e, true
+		}
+	}
+	return Env{}, false
 }
 
 func getConfig() (*Config, error) {
@@ -49,6 +59,7 @@ func getConfig() (*Config, error) {
 	flag.StringVar(&cfg.Static, "static", "static", "Directory with static content to serve")
 	flag.IntVar(&cfg.Worker, "worker", 20, "Number of cheks to run in parallel")
 	flag.DurationVar(&cfg.Duration, "duration", time.Minute, "Default duration for the checks")
+	flag.StringVar(&cfg.SelfUrl, "self-url", "", "Url to reference the this application")
 
 	var checksPath, environmentsPath string
 	flag.StringVar(&environmentsPath, "environments", "environments.yml", "The YAML config for the environments")
