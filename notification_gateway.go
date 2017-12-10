@@ -85,7 +85,7 @@ func (gw *NotificationGateway) send(envId, title, body string, isDown bool) erro
 
 func (gw *NotificationGateway) sendHipchat(url, title, body string, isDown bool) error {
 	msg := map[string]interface{}{
-		"message":        "@here @SebastianMancke\n" + title + "\n\n" + body,
+		"message":        "\n" + title + "\n\n" + body,
 		"message_format": "text",
 		"notify":         true,
 	}
