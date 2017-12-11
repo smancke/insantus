@@ -7,7 +7,4 @@
   name: Testing
   vars:
     domain: example.org
-  notifications:
-    - type: hipchat
-      target: https://hipchat.tarent.de/v2/room/248/notification?auth_token=6bY9Ayuw1Eo6VgB3DOSD5HnKtt47all01akk6hoQ
       
