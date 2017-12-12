@@ -23,6 +23,7 @@ type HttpCheck struct {
 	password      string
 	format        string
 	contains      string
+	header        map[string]string
 }
 
 func NewHttpCheck(environmentId, checkId, name string, params map[string]string) (*HttpCheck, error) {
@@ -35,6 +36,7 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 		password:      params["password"],
 		format:        params["format"],
 		contains:      params["contains"],
+		header:        map[string]string{},
 	}
 	if t, exist := params["timeout"]; exist {
 		d, err := time.ParseDuration(t)
@@ -45,6 +47,11 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 	} else {
 		c.timeout = time.Second * 10
 	}
+	for k, v := range params {
+		if strings.HasPrefix(k, "header-") {
+			c.header[strings.TrimPrefix(k, "header-")] = v
+		}
+	}
 	return c, nil
 }
 
@@ -53,6 +60,9 @@ func (c *HttpCheck) Check() []Result {
 
 	r, err := http.NewRequest("GET", c.url, nil)
 	r.Header.Set("User-Agent", "statuspage")
+	for k, v := range c.header {
+		r.Header.Set(k, v)
+	}
 
 	if err != nil {
 		mainResult.Status = StatusDown

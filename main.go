@@ -26,7 +26,7 @@ func main() {
 		for _, result := range results {
 			err := store.InsertResult(result)
 			if err != nil {
-				log.Fatalf("error storing check result: %v\n", err)
+				log.Printf("error storing check result: %v\n", err)
 			}
 			if result.Status == StatusUp {
 				log.Printf("%v: %v/%v (%vms)\n", result.Status, result.Environment, result.Check, result.Duration)
