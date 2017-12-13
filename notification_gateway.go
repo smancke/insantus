@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type NotificationGateway struct {
@@ -29,9 +30,8 @@ func (gw *NotificationGateway) NotifyDown(envId string, downtimes []*Downtime) e
 	}
 
 	body := bytes.NewBufferString("")
-	body.WriteString("The following checks failed:\n\n")
 	for _, d := range downtimes {
-		fmt.Fprintf(body, "%v (%v) is failing since %v\n--> %v\n\n", d.Name, d.Check, d.Start.Format("15:04:05 MST"), d.Message)
+		fmt.Fprintf(body, "%v (%v) is failing since %v\n--> %v\n", d.Name, d.Check, d.Start.Format("15:04:05 MST"), d.Message)
 	}
 
 	if gw.cfg.SelfUrl != "" {
@@ -50,7 +50,6 @@ func (gw *NotificationGateway) NotifyRecovered(envId string, downtimes []*Downti
 	}
 
 	body := bytes.NewBufferString("")
-	body.WriteString("The following checks recovered:\n\n")
 	for _, d := range downtimes {
 		fmt.Fprintf(body, "%v (%v) recovered (was down for %v)\n", d.Name, d.Check, d.End.Sub(d.Start))
 	}
@@ -67,9 +66,11 @@ func (gw *NotificationGateway) send(envId, title, body string, isDown bool) erro
 	notificationErrors := []string{}
 	env, _ := gw.cfg.EnvById(envId)
 	for _, n := range env.Notifications {
+		isDaytime := isDaytime()
+		alert := (n.AlertAtDaytime && isDaytime) || (n.AlertAtNighttime && !isDaytime)
 		switch n.Type {
 		case "hipchat":
-			err := gw.sendHipchat(n.Target, title, body, isDown)
+			err := gw.sendHipchat(n.Target, title, body, isDown, alert)
 			if err != nil {
 				notificationErrors = append(notificationErrors, err.Error())
 			}
@@ -83,9 +84,13 @@ func (gw *NotificationGateway) send(envId, title, body string, isDown bool) erro
 	return nil
 }
 
-func (gw *NotificationGateway) sendHipchat(url, title, body string, isDown bool) error {
+func (gw *NotificationGateway) sendHipchat(url, title, body string, isDown, alert bool) error {
+	altertString := ""
+	if alert {
+		altertString = "@all "
+	}
 	msg := map[string]interface{}{
-		"message":        "@all " + title + "\n\n" + body,
+		"message":        altertString + title + "\n\n" + body,
 		"message_format": "text",
 		"notify":         true,
 	}
@@ -108,4 +113,9 @@ func (gw *NotificationGateway) sendHipchat(url, title, body string, isDown bool)
 		return fmt.Errorf("got http status %v on sending hipchat notification to %v", resp.StatusCode, url)
 	}
 	return nil
+}
+
+func isDaytime() bool {
+	hour := time.Now().Hour()
+	return hour >= 7 && hour < 19
 }
