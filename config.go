@@ -19,8 +19,10 @@ type Env struct {
 }
 
 type Notification struct {
-	Type   string `yaml:"type"`
-	Target string `yaml:"target"`
+	Type             string `yaml:"type"`
+	Target           string `yaml:"target"`
+	AlertAtDaytime   bool   `yaml:"alertAtDaytime"`
+	AlertAtNighttime bool   `yaml:"alertAtNighttime"`
 }
 
 type Check struct {
