@@ -69,6 +69,12 @@ func (store *Store) updateChecks(cfg *Config) error {
 				if err != nil {
 					return errors.Wrap(err, "create check info")
 				}
+			} else {
+				// just update the name
+				err := store.db.Exec(`update check_status set name = ? WHERE environment = ? AND "check" = ?`, c.Name, e.Id, c.Id).Error
+				if err != nil {
+					return errors.Wrap(err, "update check info")
+				}
 			}
 			key := e.Id + "/" + c.Id
 			allKeysInConfig[key] = key

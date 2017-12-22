@@ -46,6 +46,31 @@ func Test_Store_CheckStatus(t *testing.T) {
 	InDelta(t, s[0].Updated.Unix(), time.Now().Unix(), 1000)
 }
 
+func Test_Store_CheckStatus_UpdateNames(t *testing.T) {
+	cfg := testConfig(t)
+	store, err := NewStore(cfg, NewNotificationGateway(cfg))
+	NoError(t, err)
+	defer store.Close()
+
+	checkId := cfg.Environments[0].Checks[0].Id
+	cfg.Environments[0].Checks[0].Name = "updated name"
+	store, err = NewStore(cfg, NewNotificationGateway(cfg))
+	NoError(t, err)
+	defer store.Close()
+
+	s, err := store.Status(cfg.Environments[0].Id)
+	NoError(t, err)
+
+	var changedStatus *CheckStatus
+	for _, res := range s {
+		if res.Check == checkId {
+			changedStatus = res
+		}
+	}
+
+	Equal(t, "updated name", changedStatus.Name)
+}
+
 func Test_Store_DowntimeNotifications(t *testing.T) {
 	cfg := testConfig(t)
 	notifyMock := &NotifyMock{}
