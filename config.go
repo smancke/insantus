@@ -43,6 +43,8 @@ type Config struct {
 	Duration     time.Duration
 	SelfUrl      string
 	Environments []Env
+	Pprof        bool
+	PprofListen  string
 }
 
 func (cfg *Config) EnvById(envId string) (Env, bool) {
@@ -62,6 +64,8 @@ func getConfig() (*Config, error) {
 	flag.IntVar(&cfg.Worker, "worker", 20, "Number of cheks to run in parallel")
 	flag.DurationVar(&cfg.Duration, "duration", time.Minute, "Default duration for the checks")
 	flag.StringVar(&cfg.SelfUrl, "self-url", "", "Url to reference the this application")
+	flag.BoolVar(&cfg.Pprof, "pprof", false, "Enable the golang pprof interface")
+	flag.StringVar(&cfg.PprofListen, "pprof-listen", ":6060", "Server and port for the profile interface")
 
 	var checksPath, environmentsPath string
 	flag.StringVar(&environmentsPath, "environments", "environments.yml", "The YAML config for the environments")
