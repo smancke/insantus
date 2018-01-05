@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 )
 
 var store *Store
@@ -11,6 +13,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("error reading configuration %v\n", err)
 	}
+
+	profiler(cfg)
 
 	store, err = NewStore(cfg, NewNotificationGateway(cfg))
 	if err != nil {
@@ -35,4 +39,15 @@ func main() {
 			}
 		}
 	}
+}
+
+func profiler(cfg *Config) {
+	if !cfg.Pprof {
+		return
+	}
+	pprofMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
+	go func() {
+		log.Fatal(http.ListenAndServe(cfg.PprofListen, pprofMux))
+	}()
 }

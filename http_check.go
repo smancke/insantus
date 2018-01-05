@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -110,6 +111,11 @@ func (c *HttpCheck) Check() []Result {
 
 				if mainResult.Status != StatusUp {
 					mainResult.Detail = string(b)
+				}
+			} else {
+				if resp.Body != nil {
+					io.Copy(ioutil.Discard, resp.Body)
+					resp.Body.Close()
 				}
 			}
 		}
