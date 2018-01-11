@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -73,11 +72,11 @@ func (c *HttpCheck) Check() []Result {
 		if c.user != "" {
 			r.SetBasicAuth(c.user, c.password)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-		defer cancel()
-		r.WithContext(ctx)
 
-		resp, err := http.DefaultClient.Do(r)
+		client := http.Client{
+			Timeout: c.timeout,
+		}
+		resp, err := client.Do(r)
 		if err != nil {
 			mainResult.Status = StatusDown
 			mainResult.Message = err.Error()
