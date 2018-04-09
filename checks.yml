@@ -1,4 +1,3 @@
-
 - id: google
   name: Google Check
   type: http
