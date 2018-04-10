@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 var FormatSpringHealth string = "spring-health"
@@ -58,87 +58,91 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 func (c *HttpCheck) Check() []Result {
 	mainResult := NewResult(c.environmentId, c.checkId, c.name)
 
-	r, err := http.NewRequest("GET", c.url, nil)
-	r.Header.Set("User-Agent", "statuspage")
-	for k, v := range c.header {
-		r.Header.Set(k, v)
-	}
+	mainResult.Status, mainResult.Message, mainResult.Detail = c.execute()
 
-	if err != nil {
-		mainResult.Status = StatusDown
-		mainResult.Message = err.Error()
-	} else {
-
-		if c.user != "" {
-			r.SetBasicAuth(c.user, c.password)
-		}
-
-		client := http.Client{
-			Timeout: c.timeout,
-		}
-		resp, err := client.Do(r)
-		if err != nil {
-			mainResult.Status = StatusDown
-			mainResult.Message = err.Error()
-		} else {
-			if 200 != resp.StatusCode {
-				mainResult.Status = StatusDown
-				mainResult.Message = fmt.Sprintf("http status code: %v\n", resp.StatusCode)
-			}
-
-			if c.format == FormatSpringHealth ||
-				c.contains != "" {
-
-				b, _ := ioutil.ReadAll(resp.Body)
-				resp.Body.Close()
-				if c.format == FormatSpringHealth {
-					status, err := ensureSpringHealthFormat(b, resp)
-					if err != nil {
-						mainResult.Status = StatusDown
-						mainResult.Message = err.Error()
-					} else {
-						mainResult.Status = status
-					}
-				}
-
-				if c.contains != "" {
-					if !strings.Contains(string(b), c.contains) {
-						mainResult.Status = StatusDown
-						mainResult.Message = fmt.Sprintf("missing string %q in result", c.contains)
-					}
-				}
-
-				if mainResult.Status != StatusUp {
-					mainResult.Detail = string(b)
-				}
-			} else {
-				if resp.Body != nil {
-					io.Copy(ioutil.Discard, resp.Body)
-					resp.Body.Close()
-				}
-			}
-		}
-	}
 	mainResult.Duration = int(time.Since(mainResult.Timestamp) / time.Millisecond)
+
 	results := []Result{mainResult}
 
 	return results
 }
 
+func (c *HttpCheck) execute() (status, message, detail string) {
+	r, err := http.NewRequest("GET", c.url, nil)
+
+	if err != nil {
+		return StatusDown, err.Error(), ""
+	}
+
+	r.Header.Set("User-Agent", "statuspage")
+	for k, v := range c.header {
+		r.Header.Set(k, v)
+	}
+	if c.user != "" {
+		r.SetBasicAuth(c.user, c.password)
+	}
+
+	client := http.Client{
+		Timeout: c.timeout,
+	}
+	resp, err := client.Do(r)
+
+	if err != nil {
+		return StatusDown, err.Error(), ""
+	}
+
+	if 200 != resp.StatusCode {
+		return StatusDown, fmt.Sprintf("http status code: %v\n", resp.StatusCode), ""
+	}
+
+	b, err := c.readBody(resp)
+	if err != nil {
+		return StatusDown, fmt.Sprintf("could not read body: %v\n", err), ""
+	}
+
+	if c.format == FormatSpringHealth {
+		status, err := ensureSpringHealthFormat(b, resp)
+		if err != nil {
+			return StatusDown, err.Error(), string(b)
+		}
+		return status, "", ""
+	}
+
+	if c.contains != "" && !strings.Contains(string(b), c.contains) {
+		return StatusDown, fmt.Sprintf("missing string %q in result", c.contains), string(b)
+	}
+
+	return StatusUp, "", ""
+}
+
+func (c *HttpCheck) readBody(resp *http.Response) ([]byte, error) {
+	if resp.Body == nil {
+		return []byte{}, nil
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return b, err
+	}
+
+	err = resp.Body.Close()
+	return b, err
+}
+
 func ensureSpringHealthFormat(body []byte, resp *http.Response) (string, error) {
 	if !(strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") ||
 		strings.HasPrefix(resp.Header.Get("Content-Type"), "application/vnd.spring-boot.actuator")) {
-		return "DOWN", fmt.Errorf("got wrong content type: %v", resp.Header.Get("Content-Type"))
+		return StatusDown, fmt.Errorf("got wrong content type: %v", resp.Header.Get("Content-Type"))
 	}
 
 	resultData := map[string]interface{}{}
 	err := json.Unmarshal(body, &resultData)
 	if err != nil {
-		return "DOWN", errors.Wrap(err, "error parsing json body")
+		return StatusDown, errors.Wrap(err, "error parsing json body")
 	}
 	s, exist := resultData["status"]
 	if !exist {
-		return "DOWN", errors.New("missing status in response")
+		return StatusDown, errors.New("missing status in response")
 	}
 	return fmt.Sprintf("%v", s), nil
 }
