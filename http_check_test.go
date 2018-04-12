@@ -37,6 +37,15 @@ func Test_HttpCheck(t *testing.T) {
 			expectedStatus: StatusDown,
 		},
 		{
+			name: "down with detail",
+
+			status:      http.StatusInternalServerError,
+			contentType: "text/plain",
+			body:        "down",
+
+			expectedStatus: StatusDown,
+		},
+		{
 			name: "contains",
 
 			status:      http.StatusOK,
@@ -121,6 +130,9 @@ func Test_HttpCheck(t *testing.T) {
 
 			require.Equal(t, 1, len(results))
 			assert.Equal(t, test.expectedStatus, results[0].Status)
+			if test.body != "" && test.expectedStatus != StatusUp {
+				assert.Equal(t, test.body, results[0].Detail)
+			}
 		})
 	}
 }

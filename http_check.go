@@ -91,19 +91,22 @@ func (c *HttpCheck) execute() (status, message, detail string) {
 		return StatusDown, err.Error(), ""
 	}
 
-	if 200 != resp.StatusCode {
-		return StatusDown, fmt.Sprintf("http status code: %v\n", resp.StatusCode), ""
-	}
-
 	b, err := c.readBody(resp)
 	if err != nil {
 		return StatusDown, fmt.Sprintf("could not read body: %v\n", err), ""
+	}
+
+	if 200 != resp.StatusCode {
+		return StatusDown, fmt.Sprintf("http status code: %v\n", resp.StatusCode), string(b)
 	}
 
 	if c.format == FormatSpringHealth {
 		status, err := ensureSpringHealthFormat(b, resp)
 		if err != nil {
 			return StatusDown, err.Error(), string(b)
+		}
+		if status != StatusUp {
+			return status, "", string(b)
 		}
 		return status, "", ""
 	}
