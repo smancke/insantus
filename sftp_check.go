@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -23,6 +24,8 @@ type SftpCheck struct {
 	hostKey      string
 	testfile     string
 	clientConfig *ssh.ClientConfig
+
+	mutex sync.Mutex
 }
 
 func NewSftpCheck(environmentID, checkID, name string, params map[string]string) (*SftpCheck, error) {
@@ -65,6 +68,9 @@ func NewSftpCheck(environmentID, checkID, name string, params map[string]string)
 }
 
 func (c *SftpCheck) Check() []Result {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	mainResult := NewResult(c.environmentID, c.checkID, c.name)
 
 	var err error
