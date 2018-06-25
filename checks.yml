@@ -29,3 +29,24 @@
     url: http://127.0.0.1/
     header-Foo-Bar: bazz
 
+- id: cert1
+  every: 2s
+  name: Check cert of snabble.io
+  type: cert
+  timeout: 10s
+  envs:
+    - testing
+  params:
+    host: snabble.io
+    port: 443
+
+- id: cert2
+  every: 2s
+  name: Check for failing cert
+  type: cert
+  timeout: 10s
+  envs:
+    - testing
+  params:
+    host: expired-isrgrootx1.letsencrypt.org
+    port: 443

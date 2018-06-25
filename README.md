@@ -8,6 +8,7 @@ Features
 -------------
 * Http checks
 * SCP checks
+* Certificate checks
 * Multi Environment
 * Notifications by email
 
