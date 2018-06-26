@@ -32,6 +32,11 @@ func startChecking(cfg *Config, resultCallback chan []Result) {
 				if err != nil {
 					log.Fatalf("error creating check %v/%v: %v\n", e.Id, c.Id, err)
 				}
+			case "cert":
+				checker, err = NewCertCheck(e.Id, c.Id, c.Name, c.Params)
+				if err != nil {
+					log.Fatalf("error creating check %v/%v: %v\n", e.Id, c.Id, err)
+				}
 			default:
 				log.Fatalf("error creating check for %v/%v: no such type %v\n", e.Id, c.Id, c.Type)
 			}
