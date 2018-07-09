@@ -27,6 +27,7 @@ app.factory('store', function($rootScope, $http, $interval) {
     store.checkUpdateTimestamp = undefined;
     store.selectedEnvId = undefined;
     store.stopTimer = undefined;
+    store.reloadingEnabled = undefined;
 
     store._loadEnvironments = function() {
         $http.get('/api/environments')
@@ -80,6 +81,7 @@ app.factory('store', function($rootScope, $http, $interval) {
     }
     
     store.stopReloading = function() {
+        store.reloadingEnabled = false
         if (angular.isDefined(store.stopTimer)) {
             $interval.cancel(store.stopTimer);
         }
@@ -92,6 +94,7 @@ app.factory('store', function($rootScope, $http, $interval) {
         }
     }
     store.enableReloading = function() {
+        store.reloadingEnabled = true
         store.reload();
         store.stopTimer = $interval(function(){
             store.reload();
@@ -120,7 +123,7 @@ app.controller('EnvController', function($scope,  $routeParams, $http, store) {
 });
 
 
-app.run(function($rootScope) {
+app.run(function($rootScope, store) {
     $rootScope.statusBackground = function (object) {
         var s = object.status;
         if ('statusTo' in object) {
@@ -140,6 +143,14 @@ app.run(function($rootScope) {
             return "bg-danger";
         }
         return "bg-info";
+    }
+
+    $rootScope.toggleReload = function () {
+        if (store.reloadingEnabled) {
+            store.stopReloading()
+        } else {
+            store.enableReloading()
+        }
     }
 
     var oneMinute = 1000 * 60

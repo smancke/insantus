@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type HttpServer struct {
@@ -103,6 +104,7 @@ func (server *HttpServer) GetEnvironment(w http.ResponseWriter, r *http.Request)
 		if s.Status != StatusUp {
 			overallStatus = StatusDown
 		}
+
 		info := map[string]interface{}{
 			"check":        s.Check,
 			"name":         s.Name,
@@ -113,6 +115,15 @@ func (server *HttpServer) GetEnvironment(w http.ResponseWriter, r *http.Request)
 			"time":         s.Updated,
 			"sinceCheck":   sinceMs(s.Updated),
 		}
+
+		if s.Detail != "" {
+			jsonDetails := map[string]interface{}{}
+			err := json.Unmarshal([]byte(s.Detail), &jsonDetails)
+			if err == nil {
+				info["detail"] = jsonDetails
+			}
+		}
+
 		checks = append(checks, info)
 	}
 
