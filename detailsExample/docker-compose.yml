@@ -1,0 +1,12 @@
+version: "3.6"
+
+services:
+  detailedDataSource:
+    image: detaileddatasource:example
+  insantus:
+    image: smancke/insantus:latest
+    volumes:
+      - "./checks.yml:/checks.yml" 
+      - "./environments.yml:/environments.yml"
+    ports:
+      - 80:80
