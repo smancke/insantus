@@ -49,6 +49,7 @@ type CheckStatus struct {
 	Name         string    `json:"name"`
 	Status       string    `json:"status" sql:"type:varchar(50);index"`
 	Message      string    `json:"message"`
+	Detail       string    `json:"detail"`
 	Duration     int       `json:"duration"`
 	LastResultId uint      `json:"lastResultId"`
 	Updated      time.Time `json:"updated" sql:"index"`

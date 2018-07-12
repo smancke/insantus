@@ -1,0 +1,10 @@
+- id: detailed
+  every: 10s
+  timeout: 2s
+  name: detailed check
+  type: http
+  envs: 
+    - testing
+  params:  
+    url: "http://detailedDataSource:8081/health"
+    port: 8081

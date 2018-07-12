@@ -1,0 +1,4 @@
+- id: testing
+  name: Testing
+  vars:
+    domain: example.org

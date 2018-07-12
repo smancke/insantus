@@ -1,11 +1,12 @@
 package main
 
 import (
+	"log"
+	"time"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"log"
-	"time"
 )
 
 type Store struct {
@@ -129,6 +130,7 @@ func (store *Store) updateCheckStatus(result Result) error {
 
 	checkStatus.Status = result.Status
 	checkStatus.Message = result.Message
+	checkStatus.Detail = result.Detail
 	checkStatus.Duration = result.Duration
 	checkStatus.Updated = result.Timestamp
 	checkStatus.LastResultId = result.Id
