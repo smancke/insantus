@@ -29,6 +29,8 @@ app.factory('store', function($rootScope, $http, $interval) {
     store.stopTimer = undefined;
     store.reloadingEnabled = undefined;
 
+    store.openedChecks = [];
+
     store._loadEnvironments = function() {
         $http.get('/api/environments')
             .success(function(data) {
@@ -51,17 +53,19 @@ app.factory('store', function($rootScope, $http, $interval) {
 
     store._loadChecks = function() {
         var envId = store.selectedEnvId;
+
         $http.get('/api/environments/'+envId)
             .success(function(data) {
                 if (envId != store.selectedEnvId) {
                     // only update, if the eventid has not changed in the meantime
                     return;
                 }
-                data.checks.sort(compareByName);
-                store.data.checks = data.checks;
+                
                 store.checkUpdateTimestamp = Date.now();
                 store.data.downtimes = data.downtimes;
                 store.data.sinceLastCheckUpdate = 0;
+                data.checks.sort(compareByName);
+                store.data.checks = data.checks;
             })
             .error(function(data, status) {
                 store.data.checks = [{name: "Loading .. error "+ status, status: "DOWN"}];
@@ -145,12 +149,20 @@ app.run(function($rootScope, store) {
         return "bg-info";
     }
 
-    $rootScope.toggleReload = function () {
-        if (store.reloadingEnabled) {
-            store.stopReloading()
+    $rootScope.toggleDetails = function (check) {
+        var openedChecks = store.openedChecks;
+        var index = openedChecks.indexOf(check);
+
+        if (index === -1) {
+            openedChecks.push(check);
         } else {
-            store.enableReloading()
+            openedChecks.splice(index, 1);
         }
+    }
+
+    $rootScope.isInOpenedChecks = function (check) {
+        var openedChecks = store.openedChecks;
+        return openedChecks.indexOf(check) !== -1;
     }
 
     var oneMinute = 1000 * 60
