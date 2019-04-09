@@ -18,6 +18,17 @@
     url: https://$domain/something-to-fail
 
 
+- id: expect-404
+  every: 2s
+  name: Expect 404
+  type: http
+  timeout: 2s
+  envs:
+    - testing
+  params:
+    url: https://$domain/404
+    expectCode: 404
+
 - id: nginx1
   every: 2s
   name: Nginx Test 1
