@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"strconv"
 )
 
 var FormatSpringHealth string = "spring-health"
@@ -23,6 +24,7 @@ type HttpCheck struct {
 	password      string
 	format        string
 	contains      string
+	expectCode    int
 	header        map[string]string
 }
 
@@ -36,7 +38,15 @@ func NewHttpCheck(environmentId, checkId, name string, params map[string]string)
 		password:      params["password"],
 		format:        params["format"],
 		contains:      params["contains"],
+		expectCode:    200,
 		header:        map[string]string{},
+	}
+	if expectCode, exist := params["expectCode"]; exist {
+		var err error
+		c.expectCode, err = strconv.Atoi(expectCode)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if t, exist := params["timeout"]; exist {
 		d, err := time.ParseDuration(t)
@@ -96,8 +106,12 @@ func (c *HttpCheck) execute() (status, message, detail string) {
 		return StatusDown, fmt.Sprintf("could not read body: %v\n", err), ""
 	}
 
-	if 200 != resp.StatusCode {
-		return StatusDown, fmt.Sprintf("http status code: %v\n", resp.StatusCode), string(b)
+	if c.expectCode != resp.StatusCode {
+		if c.expectCode == 200 {
+			return StatusDown, fmt.Sprintf("http status code: %v\n", resp.StatusCode), string(b)
+		} else {
+			return StatusDown, fmt.Sprintf("http status code: %v (expected %v)\n", resp.StatusCode, c.expectCode), string(b)
+		}
 	}
 
 	if c.format == FormatSpringHealth {
